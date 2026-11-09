@@ -116,8 +116,8 @@
                     "color": "#c9a96199"
                   },
                   "focus": {
-                    "width": 1,
-                    "color": "accent"
+                    "width": 2,
+                    "color": "ansi12"
                   },
                   "radius": 0,
                   "gap": 8,

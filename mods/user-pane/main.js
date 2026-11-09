@@ -19,6 +19,13 @@ function folder(cwd) {
   return cwd === h ? "~" : cwd.startsWith(h + "/") ? "~" + cwd.slice(h.length) : cwd;
 }
 
+// An opaque blend of two #rrggbb colors, so the header never shows the pane background through it.
+function mix(base, over, amount) {
+  const ch = (c, i) => parseInt(c.slice(1 + i * 2, 3 + i * 2), 16);
+  if (!/^#[0-9a-f]{6}/i.test(base) || !/^#[0-9a-f]{6}/i.test(over)) return base;
+  return "#" + [0, 1, 2].map(i => Math.round(ch(base, i) + (ch(over, i) - ch(base, i)) * amount).toString(16).padStart(2, "0")).join("");
+}
+
 export default class Pane extends View {
   init() { this.hovered = false; }
 
@@ -55,21 +62,27 @@ export default class Pane extends View {
     const pic = icon(p.program, 14, t.dim);
     const st = p.status;
     const pane = p.pane;
+    const on = p.focused;
+    const blue = t.ansi12;
     return h_flex()
       .id(`pane-head-${pane}`)
       .size_full()
       .px(10)
       .gap(8)
       .items_center()
-      .bg(t.background)
+      // Focused pane: a blue wash, blue edges and a blue name, so it stands out from the gold chrome (zoomed too).
+      .bg(on ? mix(t.background, blue, 0.2) : t.background)
       .border_b(1)
-      .border_color(t.border)
+      .border_color(on ? blue : t.border)
+      .when(on, el => el.border_l(3))
       .text_size(12)
       .on_hover((hovered, cx) => { this.hovered = hovered; cx.notify(); })
       .on_click(() => run("pane.focus", { pane }))
       .when(Boolean(pic), (el) => el.child(pic))
-      .child(div().flex_none().truncate().max_w(isAgent ? 800 : 260).font_medium().text_color(t.foreground).child(name))
+      .child(div().flex_none().truncate().max_w(isAgent ? 800 : 260).font_medium().text_color(on ? blue : t.foreground).child(name))
       .child(div().flex_1().truncate().text_color(t.dim).child(folder(p.cwd)))
+      .when(p.zoomed, el => el.child(div().flex_none().px(5).h(16).flex().items_center().border(1).border_color(on ? blue : t.border)
+        .text_size(9.5).font_semibold().text_color(on ? blue : t.dim).child("ZOOMED")))
       .when(st === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
       .when(st === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child("Needs you")))
       .when(st === "done", el => el.child(div().size(7).flex_none().rounded(4).bg(t.done)))
