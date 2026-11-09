@@ -1,0 +1,9 @@
+{
+  "place": "none",
+  "title": "Activate personal tab bar",
+  "overlay": {
+    "kind": "popup",
+    "width": 1,
+    "height": 1
+  }
+}
