@@ -42,9 +42,16 @@ export default class WorkspaceChrome extends View {
           .when(Boolean(updates().app.ready), el => el.child(div().size(6).rounded_full().bg(t.accent))))
         .child(row("machine", "plus", "Add machine", true, () => run("mod.open", { name: "machine-add" })));
     }
-    return h_flex().size_full().bg(`${t.chrome}c8`).pl(collapsed ? 6 : 14).pr(10).gap(4).items_center().text_size(13.5)
+    // Gold underline, lit icon and gold name while this window has the system focus; dimmed otherwise.
+    const active = window()?.active !== false;
+    return h_flex().size_full().bg(active ? `${t.accent}1f` : `${t.chrome}c8`).border_b(2).border_color(active ? t.accent : "#00000000")
+      .pl(collapsed ? 6 : 14).pr(10).gap(4).items_center().text_size(13.5)
       .when(window()?.platform === "macos" && !collapsed, el => el.pl(76))
-      .when(!collapsed, el => el.child(h_flex().flex_1().gap(8).items_center().child(image("frame/welcome/herdr.png").size(20).rounded(5)).child(div().font_semibold().text_color(t.foreground).child("Herdr"))))
+      .when(!collapsed, el => el.child(h_flex().flex_1().gap(8).items_center()
+        .child(div().flex_none().p(1).rounded(6).border(1).border_color(active ? t.accent : "#00000000")
+          .child(image("frame/welcome/herdr.png").size(20).rounded(5).opacity(active ? 1 : 0.45)))
+        .child(div().font_semibold().text_color(active ? t.accent : t.dim).child("Herdr"))
+        .when(active, el => el.child(div().size(6).flex_none().rounded_full().bg(t.accent)))))
       .when(!collapsed, el => el.child(this.button("search", svg("mods/traveler-chrome/search.svg").size(15), () => run("mod.open", { name: "picker" }))))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
       .when(!(collapsed && window()?.platform === "macos"), el => el.child(this.button("sidebar-toggle", svg("mods/traveler-chrome/sidebar.svg").size(15), toggleSidebar)));

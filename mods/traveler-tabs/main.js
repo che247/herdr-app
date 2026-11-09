@@ -189,6 +189,8 @@ export default class Tabs extends View {
   render() {
     this.observeTabs();
     const t = theme();
+    // Whether this window has the system focus: gold underline and gold active badge only then.
+    const focus = window()?.active !== false;
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];
     const assigned = assignJobs(tabNames(spaces(), agents()), this.jobs);
@@ -210,7 +212,7 @@ export default class Tabs extends View {
         })
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .child(div().flex_none().mr(6).px(4).text_size(10.5).font_weight(700)
-          .text_color(c.active ? t.accent_foreground : t.accent).bg(c.active ? t.accent : `${t.accent}1f`).child(String(i + 1)))
+          .text_color(c.active && focus ? t.accent_foreground : c.active ? t.foreground : t.accent).bg(c.active && focus ? t.accent : c.active ? t.raised : `${t.accent}1f`).child(String(i + 1)))
         .child(div().max_w(300).truncate().child(name))
         .when(c.zoomed, el => el.child(div().flex_none().ml(5).text_size(10).text_color(t.accent).child("ZOOM")));
     };
@@ -234,7 +236,7 @@ export default class Tabs extends View {
     };
     return h_flex().id("traveler-tabs").track_focus(this.handle)
       .on_key_down((e, cx) => this.prefixKey(e, cx))
-      .size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
+      .size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(focus ? 2 : 1).border_color(focus ? t.accent : t.border)
       .on_mouse_up("left", () => { this.pressed = null; })
       .on_scroll_wheel(e => { if (Math.abs(e.delta.y) >= 1) run(e.delta.y > 0 ? "tab.prev" : "tab.next"); })
       .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().children(shown.map(item)))
