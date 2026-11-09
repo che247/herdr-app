@@ -9,7 +9,7 @@ My personal Herdr app configuration: the **Traveler** layout (dusk navy and gold
 | `layouts/traveler.json` | The Traveler window layout |
 | `layouts/user-main.json` | Personal variant of the main layout |
 | `themes/traveler-dusk.json` | The Traveler color theme |
-| `mods/traveler-*`, `mods/user-*`, `mods/inbox` | Personal mods: tabs, spaces, agent cards, chrome, pane header, prefix keys |
+| `mods/traveler-*`, `mods/user-*` | Personal mods: tabs, spaces, agent cards, chrome, pane header, prefix keys |
 | `keys.json`, `settings.json`, `wsl-shell.toml` | Keys, preferences, WSL shell |
 | `opencode/` | OpenCode plugin that feeds the agent cards (lives in `~/.config/opencode`) |
 | `scripts/sync-opencode.sh` | Copies the OpenCode files between this repo and `~/.config/opencode` |
