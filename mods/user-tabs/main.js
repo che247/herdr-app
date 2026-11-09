@@ -33,8 +33,29 @@ export default class Tabs extends View {
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
   }
 
+  // The last two focused panes across every space and tab, shared so any layout's tab bar can toggle.
+  observePane() {
+    const f = focused();
+    if (this.armed || !f?.pane) return;
+    const h = shared("user.pane.last") ?? {};
+    if (h.current?.pane === f.pane) return;
+    setShared("user.pane.last", { current: { pane: f.pane, tab: f.tab, space: f.space }, previous: h.current ?? null });
+  }
+
+  // Prefix-l: back to the last active pane, switching space and tab as needed.
+  lastPane() {
+    const prev = shared("user.pane.last")?.previous;
+    const space = prev && spaces().find(s => s.id === prev.space);
+    if (!space?.tabs.some(tab => tab.id === prev.tab) || !panes().some(p => p.pane === prev.pane)) return false;
+    if (!space.active) run("space.select", { id: space.id });
+    if (!space.tabs.find(tab => tab.id === prev.tab)?.active) run("tab.select", { id: prev.tab });
+    run("pane.focus", { pane: prev.pane });
+    return true;
+  }
+
   // Observe all tab changes, including mouse clicks and existing shortcuts.
   observeTabs() {
+    this.observePane();
     for (const space of spaces()) {
       const current = space.tabs.find(tab => tab.active)?.id;
       if (!current) continue;
@@ -116,6 +137,7 @@ export default class Tabs extends View {
     if (key === "c") run("tab.new", f?.space ? { space: f.space } : {});
     else if (key === "n" || key === "p") run(key === "n" ? "tab.next" : "tab.prev");
     else if (key === "l") {
+      if (this.lastPane()) return;
       const previous = this.history[f?.space]?.previous;
       const space = spaces().find(s => s.id === f?.space);
       if (previous && space?.tabs.some(tab => tab.id === previous)) run("tab.select", { id: previous });
