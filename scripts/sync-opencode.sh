@@ -22,7 +22,20 @@ case "${1:-}" in
     fi
     cp "$repo/cli.json" "$live/cli.json"
     # cli.json loads the plugin by absolute path; point it at this machine's folder.
-    sed -i "s#\"[^\"]*/herdr-cards\"#\"$live/herdr-cards\"#" "$live/cli.json"
+    OPENCODE_INSTALL_DIR="$live" python3 - <<'PYTHON'
+import json
+import os
+from pathlib import Path
+
+folder = Path(os.environ["OPENCODE_INSTALL_DIR"])
+config_path = folder / "cli.json"
+config = json.loads(config_path.read_text())
+config["plugins"] = [
+    str(folder / "herdr-cards") if isinstance(plugin, str) and plugin.endswith("/herdr-cards") else plugin
+    for plugin in config.get("plugins", [])
+]
+config_path.write_text(json.dumps(config, indent=2) + "\n")
+PYTHON
     echo "Installed OpenCode files into $live"
     ;;
   *)
