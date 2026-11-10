@@ -1,7 +1,8 @@
 // One-time verification after the installer switches into Traveler.
-import { appHome, home, exec, readTextFile, writeTextFile, shared, setShared } from "herdr";
+import { appHome, home, exec, readTextFile, writeTextFile, shared, setShared, window } from "herdr";
 
 export function verifyActivation(cx) {
+  if (window()?.platform !== "windows") return;
   if (shared("traveler.install.pending") !== "traveler-20261109") return;
   setShared("traveler.install.pending", null);
   cx.timer.after(1200, (cx) => {

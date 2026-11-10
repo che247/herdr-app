@@ -1,0 +1,76 @@
+{
+  "programs": {
+    "codex": {
+      "icon": "pixel-icons/codex.svg",
+      "tint": false
+    },
+    "claude": {
+      "icon": "pixel-icons/claude.svg",
+      "tint": false
+    },
+    "gemini": {
+      "icon": "pixel-icons/gemini.svg",
+      "tint": false
+    },
+    "copilot": {
+      "icon": "pixel-icons/copilot.svg",
+      "tint": false
+    },
+    "opencode": {
+      "icon": "pixel-icons/opencode.svg",
+      "tint": false
+    },
+    "cursor": {
+      "icon": "pixel-icons/cursor.svg",
+      "tint": false
+    },
+    "amp": {
+      "icon": "pixel-icons/amp.svg",
+      "tint": false
+    },
+    "pi": {
+      "icon": "pixel-icons/pi.svg",
+      "tint": false
+    },
+    "grok": {
+      "icon": "pixel-icons/grok.svg",
+      "tint": false
+    },
+    "antigravity": {
+      "icon": "pixel-icons/antigravity.svg",
+      "tint": false
+    },
+    "qwen": {
+      "icon": "pixel-icons/qwen.svg",
+      "tint": false
+    },
+    "aider": {
+      "icon": "pixel-icons/aider.svg",
+      "tint": false
+    },
+    "goose": {
+      "icon": "pixel-icons/goose.svg",
+      "tint": false
+    },
+    "kilo": {
+      "icon": "pixel-icons/kilo.svg",
+      "tint": false
+    },
+    "roo": {
+      "icon": "pixel-icons/roo.svg",
+      "tint": false
+    },
+    "crush": {
+      "icon": "pixel-icons/crush.svg",
+      "tint": false
+    },
+    "composer": {
+      "icon": "pixel-icons/composer.svg",
+      "tint": false
+    },
+    "agent": {
+      "icon": "pixel-icons/agent.svg",
+      "tint": false
+    }
+  }
+}

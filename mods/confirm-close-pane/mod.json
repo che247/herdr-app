@@ -1,0 +1,9 @@
+{
+  "place": "none",
+  "title": "Kill pane?",
+  "overlay": {
+    "kind": "dialog",
+    "width": 330,
+    "height": 44
+  }
+}

@@ -1,5 +1,6 @@
-import { appHome, home, exec, readTextFile, writeTextFile, shared } from "herdr";
+import { appHome, home, exec, readTextFile, writeTextFile, shared, window } from "herdr";
 export function checkPaneUpdate(cx){
+ if(window()?.platform!=="windows")return;
  if(shared("layout")!=="traveler" || localStorage.getItem('minimal-tabs-1'))return;
  localStorage.setItem('minimal-tabs-1','started');
  cx.spawn(async()=>{

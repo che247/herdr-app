@@ -36,3 +36,14 @@ mods/*
 *.error
 *.before-*
 *.bak*
+
+# Personal macOS pixel layout and supporting tools
+!layouts/pixel-art.json
+!mods/pixel-*/
+!mods/name-new-tab/
+!mods/name-pane/
+!mods/confirm-close-pane/
+!pixel-icons/
+!codex-usage.py
+!tests/
+**/__pycache__/
