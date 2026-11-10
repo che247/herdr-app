@@ -164,18 +164,9 @@
         }
       ],
       "resizable": false
-    },
-    {
-      "id": "b2368352475f4a8c6c3846113bdc6f6f7",
-      "type": "block",
-      "content": {
-        "mod": "traveler-chrome"
-      },
-      "size": {
-        "px": 320
-      }
     }
   ],
+  "resizable": true,
   "background": "canvas",
   "terminal_padding": [
     14,
