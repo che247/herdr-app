@@ -1,6 +1,9 @@
 {
   "id": "root",
   "type": "row",
+  "colors": {
+    "cursor": "#a8d58a"
+  },
   "children": [
     {
       "id": "sidebar",
