@@ -161,6 +161,18 @@
           "size": {
             "px": 28
           }
+        },
+        {
+          "id": "layout-cleanup",
+          "type": "block",
+          "content": {
+            "mod": "user-hide-layouts"
+          },
+          "size": {
+            "px": 0
+          },
+          "min": 0,
+          "max": 0
         }
       ],
       "resizable": false
