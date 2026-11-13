@@ -1,1 +1,1 @@
-shell = ["wsl.exe"]
+shell = ["wsl.exe", "--cd", "~"]
