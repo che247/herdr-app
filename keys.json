@@ -60,6 +60,7 @@
     "f2": "tab.rename",
     "shift-f2": "space.rename",
     "ctrl-b": "mod.open:user-prefix",
+    "ctrl-b ,": "tab.rename",
     "ctrl-h": "pane.go:left",
     "ctrl-j": "pane.go:down",
     "ctrl-k": "pane.go:up",

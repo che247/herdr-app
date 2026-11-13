@@ -143,7 +143,7 @@ export default class Tabs extends View {
       if (previous && space?.tabs.some(tab => tab.id === previous)) run("tab.select", { id: previous });
     }
     else if ((key === "v" || key === "h") && f?.pane) run("pane.split", { pane: f.pane, direction: key === "v" ? "right" : "down" });
-    else if (key === "T" && f?.tab) run("tab.rename", { id: f.tab });
+    else if ((key === "," || key === "T") && f?.tab) run("tab.rename", { id: f.tab });
     else if (key === "P" && f?.pane) openOverlay({ mod: "user-pane-rename", kind: "dialog", width: 440, height: 210, props: { pane: f.pane, title: "Rename pane", value: shared("user.pane.names")?.[f.pane] ?? "", hint: "Leave empty to restore the automatic name." } });
     else if (key === "W" && f?.space) run("space.rename", { id: f.space });
     else if (key === "g") {
