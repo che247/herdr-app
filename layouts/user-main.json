@@ -36,7 +36,7 @@
               "id": "agents",
               "type": "block",
               "content": {
-                "mod": "traveler-agents"
+                "mod": "user-agents"
               },
               "size": {
                 "weight": 1

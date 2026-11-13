@@ -68,6 +68,7 @@ export default Plugin.define({
     const file = join(where.folder, `${where.terminal}.json`)
     const location = () => context.location ?? context.data.location.default()
     context.data.location.model.sync(location()).catch(() => {})
+    context.data.location.provider.sync(location()).catch(() => {})
 
     let last = "", lastWrite = 0, writing = Promise.resolve()
     let quota = null, quotaAt = 0, quotaSession, quotaLoading = false
@@ -95,6 +96,8 @@ export default Plugin.define({
       const ref = selected ?? (session?.model ? { providerID: session.model.providerID, modelID: session.model.id, variant: session.model.variant } : undefined)
       const info = ref ? (context.data.location.model.list(location()) ?? [])
         .find((m) => m.providerID === ref.providerID && (m.modelID === ref.modelID || m.id === ref.modelID)) : undefined
+      // The provider serving this model right now (GitHub Copilot, OpenAI, ...), by its display name.
+      const provider = ref ? (context.data.location.provider.list(location()) ?? []).find((p) => p.id === ref.providerID) : undefined
       const messages = id ? context.data.session.message.list(id) ?? [] : []
       const replies = messages.filter((m) => m.type === "assistant")
       const lastReply = [...replies].reverse().find((m) => m.tokens)
@@ -105,6 +108,8 @@ export default Plugin.define({
         sessionName: session?.title ?? null,
         model: info?.name ?? ref?.modelID ?? null,
         effort: ref ? ref.variant ?? "default" : null,
+        providerID: ref?.providerID ?? null,
+        provider: provider?.name ?? ref?.providerID ?? null,
         usage: session ? {
           input: count(session.tokens?.input),
           output: count(session.tokens?.output),
