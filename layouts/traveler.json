@@ -144,7 +144,7 @@
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "changes"
+                        "mod": "user-changes"
                       }
                     }
                   ],

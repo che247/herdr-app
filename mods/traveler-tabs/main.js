@@ -170,7 +170,7 @@ export default class Tabs extends View {
           run("layout.select", { stack: "panel-body", child: "changes" });
           run("layout.show", { id: "panel" });
         }
-      } else openOverlay({ mod: "changes", kind: "dialog", width: 0.85, height: 0.85 });
+      } else openOverlay({ mod: "user-changes", kind: "dialog", width: 0.85, height: 0.85 });
     }
   }
 
