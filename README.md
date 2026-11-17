@@ -11,6 +11,7 @@ My personal Herdr app configuration: the **Traveler** layout (dusk navy and gold
 | `themes/traveler-dusk.json` | The Traveler color theme |
 | `mods/traveler-*`, `mods/user-*` | Personal mods: tabs, spaces, agent cards, chrome, pane header, prefix keys |
 | `keys.json`, `settings.json`, `wsl-shell.toml` | Keys, preferences, WSL shell |
+| `wsl-cwd.bash` | WSL bash hook: terminals reopen in their last Linux folder after a restart |
 | `opencode/` | OpenCode plugin that feeds the agent cards (lives in `~/.config/opencode`) |
 | `scripts/sync-opencode.sh` | Copies the OpenCode files between this repo and `~/.config/opencode` |
 
@@ -20,6 +21,9 @@ Herdr's own state (`view.json`, `shared.json`, `data/`, `layouts/.state/`, …) 
 
 1. Clone this repo into `~/.config/herdr-app` (Windows: `C:\Users\<you>\.config\herdr-app`), or copy its files there.
 2. From WSL (or wherever OpenCode runs): `./scripts/sync-opencode.sh install`
+   On Windows, also add this line to the end of WSL's `~/.bash_profile` and `~/.bashrc`, so terminals
+   come back in their last Linux folder after a restart (new ones start in their space's last folder, else `~`):
+   `[ -r /mnt/c/Users/<you>/.config/herdr-app/wsl-cwd.bash ] && . /mnt/c/Users/<you>/.config/herdr-app/wsl-cwd.bash`
 3. Switch to the layout: `herdr-app do layout.switch --name traveler`
 
 ## Saving changes

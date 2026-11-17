@@ -8,6 +8,7 @@
 !settings.json
 !programs.json
 !wsl-shell.toml
+!wsl-cwd.bash
 !scripts/
 !opencode/
 
