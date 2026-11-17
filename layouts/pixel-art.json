@@ -10,7 +10,7 @@
           "id": "brand",
           "type": "block",
           "content": {
-            "mod": "workspace-chrome"
+            "mod": "pixel-chrome"
           },
           "size": {
             "px": 46
@@ -39,7 +39,7 @@
                 "mod": "pixel-agents"
               },
               "size": {
-                "weight": 2
+                "weight": 1
               },
               "min": 90
             }
@@ -49,7 +49,7 @@
           "id": "sidebar-footer",
           "type": "block",
           "content": {
-            "mod": "workspace-chrome",
+            "mod": "pixel-chrome",
             "props": {
               "footer": true
             }
@@ -64,7 +64,6 @@
       },
       "min": 44,
       "max": 480,
-      "background": "chrome",
       "resizable": false
     },
     {
@@ -78,7 +77,7 @@
             "mod": "pixel-tabs"
           },
           "size": {
-            "px": 42
+            "px": 44
           },
           "window_drag": true
         },
@@ -97,19 +96,19 @@
                       "mod": "pixel-pane"
                     },
                     "reveal": "always",
-                    "height": 30,
+                    "height": 32,
                     "position": "top"
                   },
-                  "background": "background",
+                  "background": "#1a1c2c00",
                   "border": {
                     "width": 1,
                     "color": "border"
                   },
                   "focus": {
-                    "width": 1,
+                    "width": 2,
                     "color": "accent"
                   },
-                  "radius": 10,
+                  "radius": 4,
                   "gap": 8,
                   "lone": true
                 }
@@ -134,7 +133,7 @@
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "changes"
+                        "mod": "user-changes"
                       }
                     }
                   ],
@@ -156,10 +155,10 @@
           "id": "status",
           "type": "block",
           "content": {
-            "mod": "workspace-status"
+            "mod": "pixel-status"
           },
           "size": {
-            "px": 28
+            "px": 30
           }
         },
         {
@@ -178,8 +177,10 @@
       "resizable": false
     }
   ],
-  "resizable": true,
-  "background": "canvas",
+  "background": {
+    "image": "pixel-icons/bg-night.png",
+    "fit": "cover"
+  },
   "terminal_padding": [
     14,
     12
@@ -188,9 +189,13 @@
     "width": 1,
     "color": "border"
   },
+  "resizable": true,
   "titlebar": "none",
   "traffic_lights": [
     12,
     16
-  ]
+  ],
+  "theme": "pixel-art",
+  "terminal_opacity": 0.86,
+  "preview": "pixel-icons/pixel-art-preview.png"
 }

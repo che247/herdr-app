@@ -7,6 +7,8 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
 
+const PIXEL = "PxPlus IBM VGA 8x16";
+
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -332,8 +334,8 @@ export default class Spaces extends View {
       const connected = !m || machine?.state === "connected";
       const rebuilt = this.rebuilt(machine) || !!repair;
       const folded = this.folded.has(m);
-      const head = h_flex().id(`machine-${m ?? "local"}`).h(26).flex_none().px(collapsed ? 2 : 8).gap(7).items_center().text_size(11).text_color(t.dim)
-        .cursor_pointer().hover(s => s.bg(t.hover))
+      const head = h_flex().id(`machine-${m ?? "local"}`).h(26).mt(4).flex_none().px(collapsed ? 2 : 8).gap(7).items_center().rounded(6).text_size(11.5).text_color(t.dim)
+        .cursor_pointer().hover(s => s.bg(t.hover).text_color(t.muted))
         .on_click((_e, cx) => {
           folded ? this.folded.delete(m) : this.folded.add(m);
           localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
@@ -349,9 +351,10 @@ export default class Spaces extends View {
               .tooltip(repair?.error || "This machine was rebuilt or replaced. Click to connect to the new one.")
               .on_click((_e, cx) => { cx.stop_propagation(); this.reconnect(machine, cx); })
               .child(repair?.busy ? "Connecting…" : "Connect"))))
-          .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
-            .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); }).child("+")))
-          .child(div().size(6).rounded(3).flex_none().bg(connected ? t.ansi2 : t.dim))
+          .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().p(3).rounded(4).hover(s => s.bg(t.raised).text_color(t.foreground))
+            .tooltip(`New space on ${m ?? "this computer"}`)
+            .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); }).child(svg("mods/workspace-chrome/plus.svg").size(11))))
+          .when(Boolean(m), el => el.child(div().size(6).rounded(1).flex_none().bg(connected ? t.ansi2 : t.dim)))
           .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none()));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(8).gap(7).items_center().rounded(7)
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
@@ -397,8 +400,8 @@ export default class Spaces extends View {
       .h(rowHeight({ tree }))
       .flex_none()
       .justify_center()
-      .rounded(8)
-      .when(on, (el) => el.bg(t.selected))
+      .rounded(6)
+      .when(on, (el) => el.bg(t.selected).child(div().absolute().left(0).top(8).bottom(8).w(3).rounded(1).bg(t.accent)))
       .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
       .when(this.pressed === w.id && this.over !== w.id, (el) => el.opacity(0.5))
       .when(this.pressed !== null && this.over === w.id && this.pressed !== w.id, (el) => el.child(
@@ -436,7 +439,7 @@ export default class Spaces extends View {
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(pixelIcon(w)))
           .when(!tree, el => el.child(pixelIcon(w)))
-          .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
+          .child(div().flex_shrink(0).max_w(170).truncate().when(on, el => el.font_medium()).text_color(on ? t.foreground : t.muted).child(w.name))
           .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()),
       );
   }
@@ -444,15 +447,18 @@ export default class Spaces extends View {
   compact({ w, i }, t) {
     return h_flex()
       .id(`space-${w.id}`)
-      .h(26)
+      .h(30)
       .flex_none()
       .justify_center()
+      .items_center()
       .gap(4)
-      .when(w.active, (el) => el.bg(t.raised))
+      .rounded(6)
+      .when(w.active, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
+      .relative()
       .on_click(() => run("space.select", { id: w.id }))
       .child(pixelIcon(w))
-      .child(div().text_color(tone(t, w.status)).child(glyph(w.status)));
+      .when(w.status === "blocked" || w.status === "done", el => el.child(div().absolute().top(4).right(6).size(6).rounded(1).bg(tone(t, w.status))));
   }
 
   render() {
@@ -471,11 +477,11 @@ export default class Spaces extends View {
     }
     if (changed) setShared("space.colors", kept);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
-      .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
-        .when(!collapsed, el => el.child("Spaces"))
+      .child(h_flex().h(36).flex_none().pl(16).pr(10).items_center().justify_between().text_color(t.dim)
+        .when(!collapsed, el => el.child(div().font_family(PIXEL).text_size(16).line_height("16px").text_color(t.muted).child("SPACES")))
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
-          .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
-      .child(v_flex().flex_1().min_h(0).px(8).pb(14).overflow_y_scrollbar().mode("always")
+          .tooltip("New space").on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
+      .child(v_flex().id("space-list").flex_1().min_h(0).px(8).pb(10).gap(1).overflow_y_scrollbar()
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
         .children(this.grouped(t, collapsed)));
   }

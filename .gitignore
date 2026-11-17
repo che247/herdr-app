@@ -23,6 +23,7 @@ layouts/*
 !themes/
 themes/*
 !themes/traveler-dusk.json
+!themes/pixel-art.json
 
 # Personal mods (Herdr's shipped mods are restored on every start)
 !mods/

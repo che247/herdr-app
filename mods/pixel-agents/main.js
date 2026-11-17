@@ -4,8 +4,10 @@
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spriteIdentity, drawSprite } from "./instance-sprites.js";
-import { quotaWindows, quotaMeters } from "./quota-meters.js";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, appHome } from "herdr";
+import { quotaWindows, quotaMeters, meter, coin, PIXEL } from "./quota-meters.js";
+import { appLabel, cachePath, gauge, parseCache, remoteCachePath, usageText } from "./usage-lib.js";
+import { codexMetrics, isCodex, readCodexModel } from "./codex-live.js";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, appHome, readTextFile, watchFolder } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -35,6 +37,8 @@ const toggleSidebar = () => {
   run("layout.resize", { id: "sidebar", px: nextWidth });
 };
 
+// Theme colors may already carry alpha; only plain #rrggbb takes another.
+const alpha = (c, a) => /^#[0-9a-f]{6}$/i.test(c ?? "") ? c + a : c;
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
 function leadPanes(all) {
@@ -86,16 +90,16 @@ function icon(p, size, color) {
 // Native motion stops when hidden; no JavaScript animation timers.
 function character(design, state, t, size = 48) {
   const pic = drawSprite(design, size);
-  let sprite = div().absolute().left(6).top(5).child(pic ?? div().child("?"));
-  if (state === "working") sprite = sprite.loop("top", {from: 7, to: 1, period: 640});
-  else if (state === "blocked") sprite = sprite.loop("left", {from: 4, to: 8, period: 420});
-  else if (state === "done") sprite = sprite.loop("top", {from: 5, to: 0, period: 1100});
+  const pad = Math.round(size / 8);
+  let sprite = div().absolute().left(pad).top(pad - 1).child(pic ?? div().child("?"));
+  if (state === "working") sprite = sprite.loop("top", {from: pad + 1, to: pad - 3, period: 640});
+  else if (state === "blocked") sprite = sprite.loop("left", {from: pad - 2, to: pad + 2, period: 420});
+  else if (state === "done") sprite = sprite.loop("top", {from: pad, to: pad - 4, period: 1100});
   else sprite = sprite.loop("opacity", {from: 0.65, to: 1, period: 2800});
-  return div().relative().w(size + 12).h(size + 12).flex_none().rounded(8)
-    .bg(t.raised).child(sprite);
+  return div().relative().size(size + pad * 2).flex_none().rounded(6).overflow_hidden()
+    .bg(design.color + "1c").border_1().border_color(design.color + "33").child(sprite);
 }
 
-const STATE_NAMES = {working: "Working", blocked: "Needs you", done: "Finished", idle: "Idle"};
 
 function providerName(a) {
   const key = `${a.program?.key ?? ""} ${a.app ?? ""}`.toLowerCase();
@@ -118,16 +122,30 @@ function powerLevel(model, effort) {
   const base = /astra|opus/i.test(model) ? 4 : /luna|haiku|flash/i.test(model) ? 2 : /gpt-6|terra|sol|gpt-5|sonnet|gemini/i.test(model) ? 3 : 2;
   return Math.min(10, base + weight);
 }
-function powerMeter(level) {
-  if (level === null) return div().w_full().h(26);
-  const yellow = "#ffdb45";
-  const percent = level === null ? null : Math.max(0, Math.min(100, Math.round(level * 10)));
-  return h_flex().w_full().h(26).gap(5).items_center()
-    .tooltip("Decorative power estimate: model family + reasoning effort. Not a benchmark.")
-    .child(div().w(30).flex_none().text_size(10).font_bold().text_color(yellow).child("pwr"))
-    .child(div().flex_1().min_w(0).h(12)
-      .child(div().w(`${percent ?? 0}%`).h(12).rounded(3).bg(yellow)))
-    .child(div().w(32).flex_none().text_right().text_size(12).font_bold().text_color(yellow).child(percent === null ? "—" : `${percent}%`));
+function resetsIn(at, now) {
+  const ms = Date.parse(at ?? "") - now * 1000;
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const hours = ms / 3600000;
+  return hours >= 24 ? `${Math.ceil(hours / 24)}d` : `${Math.max(1, Math.ceil(hours))}h`;
+}
+const short = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+
+// Retro status words: a tiny glyph and the same states user-main names.
+const BADGE = {
+  working: { glyph: "\u25ba", text: "WORKING" },
+  blocked: { glyph: "!", text: "NEEDS YOU" },
+  done: { glyph: "\u2605", text: "DONE" },
+  idle: { glyph: "z", text: "IDLE" },
+};
+function badge(status, t) {
+  const b = BADGE[status] ?? { glyph: "?", text: String(status ?? "").toUpperCase() };
+  const color = t[status] ?? t.dim;
+  let el = h_flex().flex_none().h(18).px(5).gap(4).items_center().rounded(2)
+    .bg(alpha(color, "22")).border_1().border_color(alpha(color, "55"))
+    .font_family(PIXEL).text_size(16).line_height("14px").text_color(status === "idle" ? t.dim : color)
+    .child(b.glyph).child(b.text);
+  if (status === "blocked") el = el.loop("opacity", { from: 0.45, to: 1, period: 700 });
+  return el;
 }
 
 export default class Agents extends View {
@@ -143,7 +161,89 @@ export default class Agents extends View {
     this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]");
     if (!this.pendingPins.length) localStorage.removeItem("pins");
     this.migratingPins = new Set();
+    // The same usage caches user-main reads (statusLine / OpenCode plugin, Codex footers).
+    this.home = appHome();
+    this.sessionsDir = `${this.home}/data/traveler/sessions`;
+    this.cache = {};
+    this.remote = {};
+    this.codex = {};
+    this.seenCache = new Set();
+    this.lastStatus = {};
+    this.tick = 0;
+    this.loadCache(cx);
+    this.loadRemote(cx);
+    this.loadCodex(cx);
+    this.watchCache(cx);
+    cx.timer.every(5000, (cx) => this.loadCodex(cx));
+    cx.timer.every(15000, (cx) => {
+      this.loadCache(cx);
+      this.watchCache(cx);
+      if (++this.tick % 2 === 0) this.loadRemote(cx);
+    });
     cx.timer.every(30000, (cx) => cx.notify());
+  }
+
+  loadCache(cx) {
+    const wanted = agents().map((a) => ({ address: a.address, path: cachePath(this.home, a.address) })).filter((w) => w.path);
+    for (const w of wanted) this.seenCache.add(w.address);
+    cx.spawn(async (cx) => {
+      const next = {};
+      for (const w of wanted) next[w.address] = parseCache(await readTextFile(w.path).catch(() => null));
+      this.cache = next;
+      cx.notify();
+    });
+  }
+
+  loadRemote(cx) {
+    const wanted = agents().map((a) => ({ address: a.address, ...remoteCachePath(a.address) })).filter((w) => w.path);
+    if (!wanted.length) return;
+    for (const w of wanted) this.seenCache.add(w.address);
+    cx.spawn(async (cx) => {
+      const next = {};
+      for (const w of wanted) next[w.address] = parseCache(await readTextFile(w.path, { on: w.on }).catch(() => null));
+      this.remote = next;
+      cx.notify();
+    });
+  }
+
+  loadCodex(cx) {
+    if (this.codexBusy) return;
+    const wanted = agents().filter(isCodex);
+    if (!wanted.length) { this.codex = {}; return; }
+    this.codexBusy = true;
+    cx.spawn(async (cx) => {
+      try {
+        const entries = await Promise.all(wanted.map(async (a) => {
+          try { return [a.address, await readCodexModel(a.address, exec, this.codex[a.address])]; }
+          catch { return [a.address, null]; }
+        }));
+        this.codex = Object.fromEntries(entries);
+        cx.notify();
+      } finally { this.codexBusy = false; }
+    });
+  }
+
+  watchCache(cx) {
+    if (this.watching) return;
+    this.watching = true;
+    cx.spawn(async (cx) => {
+      let quick = 0;
+      for (;;) {
+        let changed;
+        const started = Date.now();
+        try { changed = await watchFolder(this.sessionsDir); } catch { break; }
+        quick = Date.now() - started < 500 && (changed ?? []).length === 0 ? quick + 1 : 0;
+        if (quick >= 3) break;
+        this.loadCache(cx);
+      }
+      this.watching = false;
+    });
+  }
+
+  metrics(a, all) {
+    const cache = this.cache[a.address] ?? this.remote[a.address] ?? null;
+    const codex = codexMetrics(a, all.find((t) => t.address === a.address), this.codex[a.address]);
+    return codex ? { ...cache, ...codex } : cache;
   }
 
   refreshUsage(cx) {
@@ -350,6 +450,14 @@ export default class Agents extends View {
       this.codexStates.set(a.address, a.status);
     }
     if (usageChanged) this.refreshUsage(cx);
+    const finished = list.filter((a) => this.lastStatus[a.address] === "working" && a.status !== "working");
+    this.lastStatus = Object.fromEntries(list.map((a) => [a.address, a.status]));
+    const reload = [...finished, ...list.filter((a) => !this.seenCache.has(a.address))];
+    if (reload.some(isCodex)) this.loadCodex(cx);
+    if (reload.some((a) => cachePath(this.home, a.address))) this.loadCache(cx);
+    if (reload.some((a) => remoteCachePath(a.address))) this.loadRemote(cx);
+    const gold = Math.round(list.reduce((sum, a) => sum + ((this.cache[a.address] ?? this.remote[a.address])?.usage?.cost ?? 0), 0) * 100) / 100;
+    if (shared("pixel.party.gold") !== gold) setShared("pixel.party.gold", gold);
     this.migratePins(all);
     const shown = focused()?.agent;
     const now = Date.now();
@@ -416,7 +524,7 @@ export default class Agents extends View {
 
     const row = (a, i, subs = []) => {
       const design = spriteIdentity(a.address, all.find(k => k.address === a.address)?.created_ms);
-      const pic = character(design, a.status, t, collapsed ? 28 : 48);
+      const pic = character(design, a.status, t, collapsed ? 28 : 40);
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
@@ -463,53 +571,86 @@ export default class Agents extends View {
       const activity = reported && reported !== a.program?.name && reported.toLowerCase() !== a.program?.key
         ? reported : ({working: "Working · no activity detail reported", blocked: "Waiting for your input", done: "Finished · ready to review", idle: "Ready for your next task"}[a.status] ?? "Status unavailable");
       const stateColor = t[a.status] ?? t.dim;
-      const usage = this.codexSummary(a, all);
       const usageSnapshot = this.codexUsage?.account;
       const windows = /codex/i.test(a.program?.key ?? a.app ?? "") && !a.address.includes("/")
         ? quotaWindows(usageSnapshot) : [];
-      const usageDetail = usageSnapshot ? `Local Codex account snapshot · ${usageSnapshot.updated}\n` + [usageSnapshot.limits?.primary, usageSnapshot.limits?.secondary].filter(w => w?.resets_at).map(w => `Resets: ${new Date(w.resets_at * 1000).toLocaleString()}`).join("\n") : "Refreshes after each completed request";
       const modelInfo = this.modelInfo(a, all);
       const spriteColor = design.color;
-      const power = powerLevel(modelInfo.model, modelInfo.effort);
+      // Everything user-main's card says, from the same caches: space / tab, status,
+      // app · model, effort, provider, usage left and when it resets; then context and spend.
+      const cache = this.metrics(a, all);
+      const nowSec = Math.floor(now / 1000);
+      const g = gauge(cache ? cache.hp : null, cache ? cache.updatedAt : null, nowSec);
+      const app = appLabel(a.app)?.text ?? providerName(a);
+      const model = cache?.model ?? modelInfo.model;
+      const effort = cache?.effort ?? modelInfo.effort;
+      const provider = a.app === "opencode" || a.program?.key === "opencode" ? cache?.provider : null;
+      const level = powerLevel(model, effort);
+      const hpColor = g.stale ? t.dim : g.pct > 50 ? t.done : g.pct > 20 ? t.accent : t.blocked;
+      const reset = resetsIn(cache?.resetsAt, nowSec);
+      const ctxLeft = cache?.contextTokens != null && cache?.contextLimit ? Math.max(0, 100 - Math.round(100 * cache.contextTokens / cache.contextLimit)) : null;
+      const u = cache?.usage;
+      const spend = u ? [u.cost != null ? `$${u.cost.toFixed(2)}` : null, u.responses != null ? `${u.responses} turns` : null, u.output != null ? `${short(u.output)} out` : null].filter(Boolean) : [];
+      const heading = h_flex().flex_1().min_w(0).items_center().text_size(13).font_semibold()
+        .child(div().flex_none().max_w(110).truncate().text_color(t.muted).child(a.space_name || "Space"))
+        .child(div().flex_none().text_color(t.dim).child("\u00a0/\u00a0"))
+        .child(div().flex_1().min_w(0).truncate().text_color(idle ? t.muted : t.foreground).child(paneNames[a.pane] || a.tab_name || label(a) || a.address));
+      const story = cache?.name || (reported && reported !== a.program?.name ? reported : null);
       return h_flex()
         .id(`ag-${a.address}`)
-        .px(8)
-        .h(windows.length ? 128 : 112)
+        .relative()
         .flex_none()
-        .rounded(10)
         .mb(6)
-        .bg(t.raised)
-        .border_l(3).border_color(stateColor)
-        .items_center()
-        .gap(9)
-        .when(a.focused, (el) => el.bg(t.selected))
+        .p(8)
+        .gap(10)
+        .items_start()
+        .rounded(4)
+        .border_1()
+        .border_color(a.status === "blocked" ? alpha(t.blocked, "88") : a.focused ? alpha(t.accent, "aa") : t.border)
+        .bg(a.focused ? t.selected : t.raised)
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
+        .when(Boolean(story), (el) => el.tooltip(story))
         .on_hover((on, cx) => {
           if (on) this.hovered = a.address;
           else if (this.hovered === a.address) this.hovered = null;
           cx.notify();
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
-        .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
-          .when(subs.length > 0, el => el.on_click((_e, cx) => {
-            cx.stop_propagation();
-            this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
-            cx.notify();
-          })).child(pic)))
-        .child(v_flex().flex_1().min_w(0).gap(4)
-          .child(h_flex().gap(5).items_center()
-            .child(div().flex_1().min_w(0).truncate().font_semibold().text_size(13).text_color(t.foreground).child(a.space_name || "Unnamed space"))
-            .child(this.status(t, a, true))
-            .child(div().text_size(10.5).text_color(stateColor).child(STATE_NAMES[a.status] ?? ""))
+        // A pixel shadow along the bottom edge, like a game window.
+        .child(div().absolute().left(4).right(4).bottom(-3).h(2).bg(alpha(spriteColor, "40")))
+        .when(Boolean(pic), el => el.child(v_flex().flex_none().items_center().gap(4)
+          .child(div().id(`agent-fold-${a.address}`)
+            .when(subs.length > 0, el => el.on_click((_e, cx) => {
+              cx.stop_propagation();
+              this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
+              cx.notify();
+            })).child(pic))
+          .when(level !== null, el => el.child(div().font_family(PIXEL).text_size(16).line_height("14px").text_color("#ffcd75")
+            .tooltip("Level: a decorative score from model family + reasoning effort. Not a benchmark.").child(`LV${level}`)))))
+        .child(v_flex().flex_1().min_w(0).gap(3)
+          .child(h_flex().h(18).gap(6).items_center()
+            .child(heading)
+            .when(isPinned || this.hovered === a.address, el => el.child(pin))
             .when(subs.length > 0, el => el.child(fold(a, subs))))
-          .child(h_flex().gap(5).items_center()
-            .child(div().flex_none().rounded(4).px(5).py(2).bg(spriteColor + "22").text_size(10.5).font_semibold().text_color(spriteColor).child(providerName(a)))
-            .child(div().min_w(0).flex_1().truncate().text_color(t.foreground).text_size(12).tooltip(modelInfo.model ?? "").child(modelInfo.model ?? ""))
-            .child(div().text_size(10.5).text_color(t.muted).child(modelInfo.effort ?? "")))
-          .child(powerMeter(power))
-          .when(windows.length > 0, el => el.child(quotaMeters(windows, t)))
-          .when(windows.length === 0, el => el.child(div().h(14))));
+          .child(h_flex().gap(6).items_center()
+            .child(badge(a.status, t))
+            .when(Boolean(story), el => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).child(story))))
+          .child(h_flex().pt(1).gap(6).items_center()
+            .child(div().flex_none().h(18).px(5).flex().items_center().rounded(2).bg(alpha(spriteColor, "22")).text_size(10.5).font_semibold().text_color(spriteColor).child(app))
+            .child(div().min_w(0).flex_1().truncate().text_size(11.5).text_color(model ? t.muted : t.dim).tooltip([app, model, effort].filter(Boolean).join(" · ")).child(model ?? "awaiting report\u2026"))
+            .when(Boolean(effort), el => el.child(div().flex_none().h(18).px(4).flex().items_center().border_1().border_color(alpha(t.accent, "66"))
+              .font_family(PIXEL).text_size(16).line_height("14px").text_color(t.accent).child(String(effort).toUpperCase()))))
+          .when(Boolean(provider), el => el.child(div().truncate().text_size(10.5).text_color(t.dim).child(provider)))
+          .when(g.pct !== null || ctxLeft !== null || windows.length > 0, el => el.child(v_flex().pt(3).gap(4)
+            .when(g.pct !== null, el => el.child(meter("HP", g.pct, hpColor, t,
+              `Usage left this cycle${cache?.resetsAt ? ` · resets ${new Date(cache.resetsAt).toLocaleString()}` : ""}`, g.stale ? "old" : reset)))
+            .when(ctxLeft !== null, el => el.child(meter("MP", ctxLeft, "#73eff7", t,
+              `Context window left · ${short(cache.contextTokens)} of ${short(cache.contextLimit)} tokens used`)))
+            .when(windows.length > 0, el => el.child(quotaMeters(windows, t)))))
+          .when(spend.length > 0, el => el.child(h_flex().pt(1).gap(6).items_center().tooltip(usageText(cache))
+            .child(coin())
+            .child(div().truncate().font_family(PIXEL).text_size(16).line_height("14px").text_color("#ffcd75").child(spend.join(" \u00b7 "))))));
     };
 
     // Groups in list order: spaces (grouped) or priority sections. Agents of a
@@ -529,20 +670,21 @@ export default class Agents extends View {
       return h_flex()
         .id(g.id)
         .px(8)
-        .pt(8)
-        .h(30)
+        .pt(4)
+        .h(28)
         .flex_none()
-        .gap(6)
+        .gap(8)
         .items_center()
-        .text_size(11)
-        .font_medium()
+        .font_family(PIXEL)
+        .text_size(16)
+        .line_height("16px")
         .cursor_pointer()
         .hover((s) => s.text_color(t.foreground))
         .on_click((_e, cx) => {
           open ? this.folded.add(g.id) : this.folded.delete(g.id);
           cx.notify();
         })
-        .child(div().truncate().text_color(t[g.status] ?? t.dim).child(g.label))
+        .child(div().truncate().text_color(t[g.status] ?? t.muted).child(g.label.toUpperCase()))
         .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
         .child(div().flex_1())
         .when(!open, (el) => el
@@ -574,38 +716,30 @@ export default class Agents extends View {
           .hover((s) => s.bg(t.hover).text_color(t.foreground))
           .tooltip("Expand Spaces and Agents")
           .on_click(toggleSidebar)
-          .child("»"),
+          .child(svg("mods/workspace-chrome/chevron-right.svg").size(14)),
       ))
       .when(!collapsed, (el) =>
         el.child(
           h_flex()
-            .px(16)
-            .h(41)
-            .pt(14)
-            .pb(5)
+            .pl(16)
+            .pr(10)
+            .h(36)
             .flex_none()
+            .gap(8)
             .items_center()
-            .justify_between()
-            .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
-            .child(div()
-              .id("collapse-sidebar")
-              .size(26)
-              .flex_none()
-              .flex()
-              .items_center()
-              .justify_center()
-              .rounded(6)
-              .cursor_pointer()
-              .hover((s) => s.bg(t.hover).text_color(t.foreground))
-              .tooltip("Collapse Spaces and Agents")
-              .on_click(toggleSidebar)
-              .child("«"))
+            .child(div().font_family(PIXEL).text_size(16).line_height("16px").text_color(t.muted).child("AGENTS"))
+            .child(div().flex_1())
             .child(
               div()
                 .id("ag-sort")
-                .text_size(11)
+                .size(26)
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(6)
                 .text_color(t.dim)
-                .hover((s) => s.text_color(t.foreground))
+                .hover((s) => s.bg(t.hover).text_color(t.foreground))
                 .on_click(() => openOverlay({ mod: "agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
@@ -613,8 +747,13 @@ export default class Agents extends View {
         ),
       )
       .when(list.length === 0 && !collapsed, (el) =>
-        el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
+        el.child(v_flex().mx(8).mt(4).p(14).gap(8).items_center().rounded(4).border_1().border_color(t.border).bg(t.raised)
+          .child(h_flex().items_end().gap(2)
+            .child(div().opacity(0.85).child(drawSprite({ index: 3, color: "#566c86", trim: "#94b0c2" }, 32)))
+            .child(div().font_family(PIXEL).text_size(16).line_height("16px").text_color(t.dim).frames(["z", "zZ", "zZz", "   "], 600)))
+          .child(div().font_family(PIXEL).text_size(16).line_height("16px").text_color(t.muted).child("NO PARTY YET"))
+          .child(div().text_size(11.5).text_center().text_color(t.dim).child("Start an agent from + in the tab bar. It joins here once it reports its status."))),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows));
+      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).pb(8).overflow_y_scrollbar().children(rows));
   }
 }

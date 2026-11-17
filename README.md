@@ -49,6 +49,11 @@ Layout selection, pane names, session metadata and window state stay local
 and are ignored by Git. The Windows WSL shell file remains available; do not
 apply it as a shell configuration on the Mac.
 
+The pixel layout is a retro night scene: its own theme (`themes/pixel-art.json`,
+Sweetie 16 colors), a pixel-art background (`pixel-icons/bg-night.png`), the
+PxPlus IBM VGA pixel font (`mods/pixel-agents/fonts`), a sheep brand bar
+(`pixel-chrome`) and a game-HUD status bar (`pixel-status`). Its agent cards read
+the same usage caches as user-main (HP = usage left, MP = context left, spend).
 The pixel layout includes custom program and space icons, pane naming,
 named new tabs, confirmation before killing a pane, and Codex quota meters.
 Its optional Codex reader requires Python 3 and finds `hc` on PATH, falling
